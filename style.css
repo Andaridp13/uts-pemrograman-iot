@@ -1,0 +1,32 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  width: 300px;
+  margin: 15px auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.value {
+  font-size: 2em;
+  color: #a5b4fc;
+}
+button {
+  background: #22d3ee;
+  border: none;
+  color: #0f172a;
+  padding: 10px 25px;
+  margin: 8px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+button:hover {
+  background: #67e8f9;
+}

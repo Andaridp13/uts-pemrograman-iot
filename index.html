@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard IoT - Tampilan Neumorphism</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body { 
+  font-family: 'Poppins', sans-serif; 
+  /* Warna latar belakang dasar Neumorphism */
+  background: #f0f2f5;
+  color: #5d667b; /* Warna teks gelap */
+  text-align: center;
+  padding: 30px 15px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1 {
+  font-size: 2.5em;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #3b4256;
+  text-shadow: 1px 1px 2px #fff;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 30px; /* Sedikit lebih banyak ruang */
+  margin: 30px auto;
+  max-width: 1200px;
+}
+
+.card {
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 30px 25px;
+  /* EFEK UTAMA NEUMORPHISM: 2 bayangan (terang di kiri atas, gelap di kanan bawah) */
+  box-shadow: 7px 7px 15px #c1c4c9, -7px -7px 15px #ffffff;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  /* Saat di-hover, kita "tekan" kartunya dengan mengubah bayangan ke 'inset' */
+  box-shadow: inset 7px 7px 15px #c1c4c9, inset -7px -7px 15px #ffffff;
+}
+
+.card h2 {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #5d667b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.value {
+  font-size: 3.2em;
+  font-weight: 700;
+  /* Warna utama untuk data */
+  color: #007bff;
+  margin: 20px 0;
+  transition: all 0.3s ease;
+}
+
+.card:hover .value {
+  transform: scale(0.95); /* Efek 'tertekan' */
+  color: #0056b3;
+}
+
+.timestamp {
+  font-size: 0.8em;
+  color: #94a3b8;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  margin-top: 10px;
+}
+
+button {
+  background: #f0f2f5;
+  border: none;
+  color: #5d667b;
+  padding: 14px 28px;
+  margin: 10px 5px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9em;
+  cursor: pointer;
+  /* Efek timbul yang sama dengan card */
+  box-shadow: 5px 5px 10px #c1c4c9, -5px -5px 10px #ffffff;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+button:hover {
+  color: #007bff; /* Berubah warna saat di-hover */
+}
+
+button:active {
+  /* Efek 'tertekan' saat diklik */
+  box-shadow: inset 5px 5px 10px #c1c4c9, inset -5px -5px 10px #ffffff;
+  color: #0056b3;
+  transform: scale(0.98);
+}
+
+/* Tombol ON dan OFF dibuat sedikit berbeda */
+button:first-of-type:hover {
+  color: #28a745; /* Hijau saat hover ON */
+}
+button:last-of-type:hover {
+  color: #dc3545; /* Merah saat hover OFF */
+}
+
+canvas {
+  max-width: 1000px;
+  margin: 40px auto;
+  background: #f0f2f5;
+  padding: 25px;
+  border-radius: 20px;
+  box-shadow: 7px 7px 15px #c1c4c9, -7px -7px 15px #ffffff;
+}
+
+.data-feed {
+  max-width: 1000px;
+  margin: 30px auto;
+  background: #f0f2f5;
+  /* Kontainer feed dibuat 'tertekan' (inset) */
+  box-shadow: inset 7px 7px 15px #c1c4c9, inset -7px -7px 15px #ffffff;
+  border-radius: 20px;
+  padding: 30px;
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+.data-feed h2 {
+  color: #3b4256;
+  margin-bottom: 20px;
+  font-size: 1.6em;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.data-item {
+  background: #e9eef2; /* Latar sedikit beda agar menonjol */
+  border-left: 5px solid #007bff;
+  padding: 18px 22px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  box-shadow: 3px 3px 6px #c1c4c9, -3px -3px 6px #ffffff;
+  text-align: left; /* Konten di dalam feed lebih rapi rata kiri */
+}
+
+.data-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.data-item-topic {
+  font-weight: 600;
+  font-size: 1.05em;
+  color: #3b4256;
+}
+
+.data-item-time {
+  font-size: 0.85em;
+  color: #5d667b;
+  background: #f0f2f5;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-weight: 400;
+  box-shadow: inset 2px 2px 4px #c1c4c9, inset -2px -2px 4px #ffffff;
+}
+
+.data-item-content {
+  color: #44475b;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95em;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* Kustomisasi Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #f0f2f5;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 10px;
+  border: 3px solid #f0f2f5;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}
+
+</style>
+</head>
+<body>
+
+<h1>📡 Dashboard Monitoring IoT ESP32</h1>
+
+<div class="grid">
+  <div class="card">
+    <h2>🌡️ Suhu</h2>
+    <div class="value" id="suhuValue">-- °C</div>
+    <div class="timestamp" id="suhuTime">Menunggu data...</div>
+  </div>
+  <div class="card">
+    <h2>💧 Kelembapan</h2>
+    <div class="value" id="humidValue">-- %</div>
+    <div class="timestamp" id="humidTime">Menunggu data...</div>
+  </div>
+  <div class="card">
+    <h2>💡 Kecerahan</h2>
+    <div class="value" id="ldrValue">-- %</div>
+    <div class="timestamp" id="ldrTime">Menunggu data...</div>
+  </div>
+  <div class="card">
+    <h2>⚙️ Status Pompa</h2>
+    <div class="value" id="pumpStatus" style="color:#dc3545;">OFF</div>
+    <button onclick="publishLED('on')">🔵 HIDUPKAN POMPA</button>
+    <button onclick="publishLED('off')">⚫ MATIKAN POMPA</button>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>🔥 Suhu Maksimum</h2>
+    <div class="value" id="suhuMaxValue">-- °C</div>
+  </div>
+  <div class="card">
+    <h2>❄️ Suhu Minimum</h2>
+    <div class="value" id="suhuMinValue">-- °C</div>
+  </div>
+</div>
+
+<div class="data-feed">
+  <h2>📋 Data Terbaru (Real-time Feed)</h2>
+  <div id="dataFeedContainer">
+    <div style="text-align:center;padding:20px;">Menunggu data dari ESP32...</div>
+  </div>
+</div>
+
+<canvas id="chartCanvas"></canvas>
+
+<script>
+// Konfigurasi MQTT (sesuaikan jika perlu)
+const broker = "wss://broker.hivemq.com:8884/mqtt";
+const topicSuhu = "tes/suhu";
+const topicLDR  = "tes/kecerahan";
+const topicLED  = "tes/input/led";
+
+const client = mqtt.connect(broker);
+
+// --- Chart Setup (Disesuaikan untuk tema terang) ---
+const ctx = document.getElementById("chartCanvas").getContext("2d");
+const chart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [
+      { label: "Suhu (°C)", data: [], borderColor: "#007bff", backgroundColor: "rgba(0,123,255,0.1)", fill: true, tension: 0.3 },
+      { label: "Kelembapan (%)", data: [], borderColor: "#28a745", backgroundColor: "rgba(40,167,69,0.1)", fill: true, tension: 0.3 },
+      { label: "Kecerahan (%)", data: [], borderColor: "#ffc107", backgroundColor: "rgba(255,193,7,0.1)", fill: true, tension: 0.3 }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      x: { title: { display: true, text: "Waktu (Interval 2 Detik)", color: '#5d667b' }, ticks: { color: "#5d667b" } },
+      y: { beginAtZero: true, title: { display: true, text: "Nilai", color: '#5d667b' }, ticks: { color: "#5d667b" } }
+    },
+    plugins: { legend: { labels: { color: "#3b4256" } } }
+  }
+});
+
+// --- Variabel Global ---
+let suhuArray = [];
+let timeCounter = 0;
+
+// --- Logika MQTT ---
+client.on("connect", () => {
+  console.log("✅ Terhubung ke broker MQTT!");
+  client.subscribe([topicSuhu, topicLDR]);
+});
+
+client.on("message", (topic, payload) => {
+  const data = JSON.parse(payload.toString());
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('id-ID');
+
+  if (topic === topicSuhu) {
+    const suhu = data.temperature;
+    const hum = data.humidity;
+
+    document.getElementById("suhuValue").textContent = suhu.toFixed(1) + " °C";
+    document.getElementById("humidValue").textContent = hum.toFixed(1) + " %";
+    document.getElementById("suhuTime").textContent = "Diperbarui: " + timeStr;
+    document.getElementById("humidTime").textContent = "Diperbarui: " + timeStr;
+
+    if (suhuArray.length >= 20) suhuArray.shift();
+    suhuArray.push(suhu);
+    const suhuMax = Math.max(...suhuArray);
+    const suhuMin = Math.min(...suhuArray);
+    document.getElementById("suhuMaxValue").textContent = suhuMax.toFixed(1) + " °C";
+    document.getElementById("suhuMinValue").textContent = suhuMin.toFixed(1) + " °C";
+
+    updateChart(suhu, hum, null);
+    addDataFeedItem(topic, `Suhu: ${suhu.toFixed(1)}°C, Kelembapan: ${hum.toFixed(1)}%`, timeStr);
+  } else if (topic === topicLDR) {
+    const bright = data.brightness;
+    document.getElementById("ldrValue").textContent = bright.toFixed(1) + " %";
+    document.getElementById("ldrTime").textContent = "Diperbarui: " + timeStr;
+    updateChart(null, null, bright);
+    addDataFeedItem(topic, `Kecerahan: ${bright.toFixed(1)}%`, timeStr);
+  }
+});
+
+// --- Fungsi Publish ---
+function publishLED(cmd) {
+  client.publish(topicLED, cmd);
+  const pump = document.getElementById("pumpStatus");
+  pump.textContent = cmd === "on" ? "ON" : "OFF";
+  // Ubah warna teks status pompa
+  pump.style.color = cmd === "on" ? "#28a745" : "#dc3545";
+}
+
+// --- Fungsi Update Chart ---
+function updateChart(suhu, hum, ldr) {
+  timeCounter += 2; // Asumsi interval 2 detik
+  chart.data.labels.push(timeCounter.toString() + "s");
+  
+  // Tambahkan data ke dataset yang sesuai
+  chart.data.datasets[0].data.push(suhu);
+  chart.data.datasets[1].data.push(hum);
+  chart.data.datasets[2].data.push(ldr);
+  
+  // Ganti data 'null' dengan nilai terakhir agar garis tidak putus
+  for (let i = 0; i < 3; i++) {
+    let dataset = chart.data.datasets[i].data;
+    if (dataset[dataset.length - 1] === null) {
+      dataset[dataset.length - 1] = dataset.length > 1 ? dataset[dataset.length - 2] : 0;
+    }
+  }
+
+  // Batasi data di chart (misal 20 poin)
+  if (chart.data.labels.length > 20) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update('none'); // Update tanpa animasi agar mulus
+}
+
+// --- Fungsi Tambah Data Feed (Tidak Diubah) ---
+function addDataFeedItem(topic, content, time) {
+  const container = document.getElementById("dataFeedContainer");
+  // Hapus placeholder 'Menunggu data'
+  if (container.children.length === 1 && container.children[0].textContent.includes("Menunggu")) {
+      container.innerHTML = '';
+  }
+  
+  const item = document.createElement('div');
+  item.className = 'data-item'; // Hapus kelas 'new' untuk tampilan lebih tenang
+  
+  const topicIcon = topic.includes('suhu') ? '🌡️' : '💡';
+  const topicColor = topic.includes('suhu') ? '#007bff' : '#ffc107';
+  
+  item.innerHTML = `
+    <div class="data-item-header">
+      <span class="data-item-topic" style="color:${topicColor}">${topicIcon} ${topic}</span>
+      <span class="data-item-time">${time}</span>
+    </div>
+    <div class="data-item-content">${content}</div>
+  `;
+  
+  // Tambahkan ke atas daftar
+  container.insertBefore(item, container.firstChild);
+  
+  // Batasi jumlah item di feed (misal 50)
+  while (container.children.length > 50) {
+      container.removeChild(container.lastChild);
+  }
+}
+</script>
+</body>
+</html>
