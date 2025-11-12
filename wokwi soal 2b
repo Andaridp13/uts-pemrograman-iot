@@ -1,0 +1,122 @@
+import network
+import time
+from machine import Pin, ADC, PWM
+import dht
+import ujson
+from umqtt.simple import MQTTClient
+
+MQTT_CLIENT_ID = "c426e39d-4f80-4f07-8ffe-49c5b5235e6b"
+MQTT_BROKER    = "broker.hivemq.com"
+MQTT_USER      = "andari"
+MQTT_PASSWORD  = ""
+TOPIC_SUHU     = "tes/suhu"
+TOPIC_LDR      = "tes/kecerahan"
+TOPIC_LED      = "tes/input/led"
+
+sensor_dht = dht.DHT22(Pin(15))  
+ldr = ADC(Pin(34))
+ldr.atten(ADC.ATTN_11DB)
+
+relay = Pin(26, Pin.OUT)          
+led_hijau = Pin(18, Pin.OUT)     
+led_kuning = Pin(5, Pin.OUT)    
+led_merah = Pin(17, Pin.OUT)      
+
+buzzer = PWM(Pin(14))            
+buzzer.freq(1000)                
+buzzer.duty_u16(0)               
+
+sta_if = network.WLAN(network.STA_IF)
+sta_if.active(True)
+sta_if.connect('Wokwi-GUEST', '')
+while not sta_if.isconnected():
+    print(".", end="")
+    time.sleep(0.2)
+print("\n✅ WiFi Terhubung:", sta_if.ifconfig())
+
+def on_message(topic, msg):
+    print("📩 Pesan diterima:", topic, msg)
+    if topic.decode() == TOPIC_LED:
+        pesan = msg.decode().lower()
+        if pesan == "on":
+            relay.value(1)
+            led_merah.value(1)
+            led_hijau.value(0)
+            led_kuning.value(0)
+            buzzer.duty_u16(30000)  
+            print("💡 Relay & LED Merah + Buzzer ON")
+        elif pesan == "off":
+            relay.value(0)
+            led_merah.value(0)
+            led_hijau.value(1)
+            led_kuning.value(0)
+            buzzer.duty_u16(0)     
+            print("💤 Relay OFF, LED Hijau ON")
+
+def connect_mqtt():
+    global client
+    client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, user=MQTT_USER, password=MQTT_PASSWORD)
+    client.set_callback(on_message)
+    while True:
+        try:
+            client.connect()
+            client.subscribe(TOPIC_LED)
+            print("✅ MQTT Terhubung & subscribe ke:", TOPIC_LED)
+            break
+        except OSError as e:
+            print("⚠ Gagal connect MQTT:", e)
+            time.sleep(5)
+
+connect_mqtt()
+
+while True:
+    try:
+        client.check_msg()
+
+        try:
+            sensor_dht.measure()
+            suhu = sensor_dht.temperature()
+            hum = sensor_dht.humidity()
+        except OSError as e:
+            print("⚠ Sensor DHT Error:", e)
+            suhu = None
+            hum = None
+
+        cahaya = ldr.read()
+        kecerahan = round((cahaya / 4095) * 100, 2)
+
+        if suhu is not None:
+            if suhu > 35:
+                led_merah.value(1)
+                led_kuning.value(0)
+                led_hijau.value(0)
+                buzzer.duty_u16(30000)  
+                relay.value(1)
+            elif 30 <= suhu <= 35:
+                led_merah.value(0)
+                led_kuning.value(1)
+                led_hijau.value(0)
+                buzzer.duty_u16(0)     
+                relay.value(0)
+            else:
+                led_merah.value(0)
+                led_kuning.value(0)
+                led_hijau.value(1)
+                buzzer.duty_u16(0)
+                relay.value(0)
+
+        client.publish(TOPIC_SUHU, ujson.dumps({"temperature": suhu, "humidity": hum}))
+        client.publish(TOPIC_LDR, ujson.dumps({"brightness": kecerahan}))
+
+        print(f"📤 Suhu: {suhu}°C, Hum: {hum}%, LDR: {kecerahan}%")
+        time.sleep(2)
+
+    except OSError as e:
+        print("⚠ Loop Error:", e)
+        try:
+            client.disconnect()
+        except:
+            pass
+        print("🔁 Mencoba reconnect MQTT...")
+        time.sleep(5)
+        connect_mqtt()
