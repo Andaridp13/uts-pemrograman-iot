@@ -1,0 +1,76 @@
+#include <DHT.h>
+
+// ==== Konfigurasi Pin ====
+#define DHTTYPE DHT22
+const int DHT_PIN = 27;          // Sensor DHT22 di pin 27
+const int GREEN_LED_PIN = 5;     // LED Hijau di pin 5
+const int YELLOW_LED_PIN = 18;   // LED Kuning di pin 18
+const int RED_LED_PIN = 12;      // LED Merah di pin 12
+const int RELAY_PIN = 25;        // Relay di pin 25
+const int BUZZER_PIN = 26;       // Buzzer di pin 26
+
+// ==== Objek DHT ====
+DHT dht(DHT_PIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  // Pastikan semua awalnya mati
+  digitalWrite(GREEN_LED_PIN, LOW);
+  digitalWrite(YELLOW_LED_PIN, LOW);
+  digitalWrite(RED_LED_PIN, LOW);
+  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  Serial.println("Sistem Monitoring Suhu Aktif...");
+}
+
+void loop() {
+  float suhu = dht.readTemperature();  // Baca suhu dalam Celcius
+  float kelembapan = dht.readHumidity();
+
+  if (isnan(suhu) || isnan(kelembapan)) {
+    Serial.println("Gagal membaca data sensor!");
+    delay(2000);
+    return;
+  }
+
+  // Tampilkan data di Serial Monitor
+  Serial.print("Suhu: ");
+  Serial.print(suhu);
+  Serial.print(" °C | Kelembapan: ");
+  Serial.print(kelembapan);
+  Serial.println(" %");
+
+  // Matikan semua indikator dulu
+  digitalWrite(GREEN_LED_PIN, LOW);
+  digitalWrite(YELLOW_LED_PIN, LOW);
+  digitalWrite(RED_LED_PIN, LOW);
+  digitalWrite(RELAY_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  // Logika kondisi suhu
+  if (suhu > 35) {
+    Serial.println("Kondisi PANAS 🔥 → LED Merah + Buzzer Aktif");
+    digitalWrite(RED_LED_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(RELAY_PIN, HIGH); // optional: nyalakan relay juga
+  } 
+  else if (suhu >= 30 && suhu <= 35) {
+    Serial.println("Kondisi SEDANG 🌤️ → LED Kuning Menyala");
+    digitalWrite(YELLOW_LED_PIN, HIGH);
+  } 
+  else {
+    Serial.println("Kondisi DINGIN ❄️ → LED Hijau Menyala");
+    digitalWrite(GREEN_LED_PIN, HIGH);
+  }
+
+  delay(2000);
+}  // <== Kurung tutup ini yang sempat hilang
